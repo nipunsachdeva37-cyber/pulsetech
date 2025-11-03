@@ -1,0 +1,23 @@
+FROM php:8.2-apache
+RUN apt-get update && apt-get install -y python3 python3-pip supervisor && \
+    docker-php-ext-install mysqli pdo pdo_mysql && a2enmod rewrite
+WORKDIR /var/www/html
+COPY website/ /var/www/html/
+COPY scraper/ /var/www/html/scraper/
+RUN pip install --no-cache-dir -r /var/www/html/scraper/requirements.txt
+RUN mkdir -p /var/log/supervisor
+COPY <<EOF /etc/supervisor/conf.d/supervisord.conf
+[supervisord]
+nodaemon=true
+[program:apache2]
+command=/usr/sbin/apache2ctl -D FOREGROUND
+autostart=true
+autorestart=true
+[program:flask]
+directory=/var/www/html/scraper
+command=gunicorn -b 0.0.0.0:5000 flask_app:app
+autostart=true
+autorestart=true
+EOF
+EXPOSE 80 5000
+CMD ["/usr/bin/supervisord"]
